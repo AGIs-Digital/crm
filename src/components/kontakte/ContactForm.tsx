@@ -344,8 +344,18 @@ export function ContactForm({
     contact?.tags.map((tag) => tag.id) || [],
   );
 
-  const [localAvailableTags, setLocalAvailableTags] =
-    useState<Tag[]>(availableTags);
+  const [localAvailableTags, setLocalAvailableTags] = useState<Tag[]>(
+    availableTags.length > 0
+      ? availableTags
+      : [
+          { id: "1", name: "KI-Anruf", color: "#3b82f6", icon: "📞" },
+          { id: "2", name: "Follow-up", color: "#06b6d4", icon: "📋" },
+          { id: "3", name: "Angebot", color: "#22c55e", icon: "💰" },
+          { id: "4", name: "Potenzial", color: "#8b5cf6", icon: "⭐" },
+          { id: "5", name: "Wiedervorlage", color: "#f59e0b", icon: "🔄" },
+          { id: "6", name: "Abschluss", color: "#6b7280", icon: "✅" },
+        ],
+  );
   const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#3b82f6"); // Default blue color
@@ -871,22 +881,22 @@ export function ContactForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div className="flex items-end gap-6">
         <div className="space-y-2">
           <Label>VIP</Label>
-          <Label className="flex items-center gap-2 cursor-pointer">
+          <div className="flex items-center h-10">
             <input
               type="checkbox"
               checked={formData.is_vip || false}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, is_vip: e.target.checked }))
               }
-              className="w-4 h-4 rounded border-gray-300 text-[#004AAD] focus:ring-[#004AAD] focus:ring-2"
+              className="w-5 h-5 rounded border-gray-300 text-[#004AAD] focus:ring-[#004AAD] focus:ring-2"
             />
-          </Label>
+          </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 flex-1">
           <Label htmlFor="status" id="status-label">
             Status *
           </Label>
