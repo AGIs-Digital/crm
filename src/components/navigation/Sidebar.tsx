@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
     icon: <Home className="h-5 w-5" />,
   },
   {
-    title: "Kontakte",
+    title: "Leads",
     href: "/kontakte",
     icon: <Users className="h-5 w-5" />,
   },
@@ -46,7 +46,7 @@ interface SidebarProps {
   className?: string;
 }
 
-export default function Sidebar({ className = "" }: SidebarProps) {
+function Sidebar({ className = "" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -126,3 +126,6 @@ export default function Sidebar({ className = "" }: SidebarProps) {
     </div>
   );
 }
+
+export default Sidebar;
+export { Sidebar };

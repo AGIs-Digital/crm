@@ -56,6 +56,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { format, addHours } from "date-fns";
+import { de } from "date-fns/locale";
 
 export default function KontaktePage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -112,11 +114,27 @@ export default function KontaktePage() {
     }
   };
 
-  // Filter contacts based on search term
+  // Filter contacts based on search term and status
+  const [showPipelineLeads, setShowPipelineLeads] = useState(false);
+  const [viewMode, setViewMode] = useState<
+    "leads" | "customers" | "potentials"
+  >("leads");
+
   const filteredContacts = contacts.filter((contact) => {
+    // Filter by search term
     const searchString =
       `${contact.company_name} ${contact.first_name} ${contact.last_name} ${contact.email}`.toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+
+    // Apply filters based on view mode and contact status
+    if (viewMode === "customers") {
+      return matchesSearch && contact.status === "Kunde";
+    } else if (viewMode === "potentials") {
+      return matchesSearch && contact.status === "Potenzial";
+    } else {
+      // In leads view, show only leads
+      return matchesSearch && contact.status === "Lead";
+    }
   });
 
   // Handle edit contact
@@ -130,9 +148,14 @@ export default function KontaktePage() {
     setContacts(contacts.filter((contact) => contact.id !== contactId));
   };
 
-  // Handle new contact
-  const handleNewContact = () => {
+  // Handle new contact with pre-selected status
+  const [preSelectedStatus, setPreSelectedStatus] = useState<
+    "Lead" | "Kunde" | "Potenzial" | null
+  >(null);
+
+  const handleNewContact = (status?: "Lead" | "Kunde" | "Potenzial") => {
     setCurrentContact(undefined);
+    setPreSelectedStatus(status || "Lead");
     setIsFormOpen(true);
   };
 
@@ -244,8 +267,8 @@ export default function KontaktePage() {
         ),
       );
       toast({
-        title: "Kontakt aktualisiert",
-        description: "Der Kontakt wurde erfolgreich aktualisiert.",
+        title: "Lead aktualisiert",
+        description: "Der Lead wurde erfolgreich aktualisiert.",
         variant: "success",
       });
     } else {
@@ -255,8 +278,8 @@ export default function KontaktePage() {
         const newContact = contactData as Contact;
         setContacts([...contacts, newContact]);
         toast({
-          title: "Kontakt erstellt",
-          description: "Der Kontakt wurde erfolgreich erstellt.",
+          title: "Lead erstellt",
+          description: "Der Lead wurde erfolgreich erstellt.",
           variant: "success",
         });
       }
@@ -270,6 +293,47 @@ export default function KontaktePage() {
     setCurrentContact(undefined);
     // Refresh tags when form is closed in case new tags were created
     fetchTags();
+  };
+
+  // Handle add to calendar
+  const handleAddToCalendar = (contactId: string, date: Date, note: string) => {
+    try {
+      // Find the contact
+      const contact = contacts.find((c) => c.id === contactId);
+      if (!contact) return;
+
+      // Format the date for the calendar URL
+      const formattedDate = format(date, "yyyyMMdd'T'HHmmss");
+      const endDate = format(addHours(date, 1), "yyyyMMdd'T'HHmmss"); // Default to 1 hour duration
+
+      // Create title and description for the calendar event
+      const title = `Wiedervorlage: ${contact.first_name} ${contact.last_name}`;
+      const description =
+        note ||
+        `Wiedervorlage für ${contact.company_name || ""} ${contact.first_name} ${contact.last_name}`;
+
+      // Create Google Calendar URL
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formattedDate}/${endDate}&details=${encodeURIComponent(description)}`;
+
+      // Open the URL in a new tab
+      window.open(googleCalendarUrl, "_blank");
+
+      toast({
+        title: "Kalendereintrag erstellt",
+        description: `Wiedervorlage für ${contact.first_name} ${contact.last_name} wurde zum Kalender hinzugefügt.`,
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Fehler beim Erstellen des Kalendereintrags:", error);
+      toast({
+        title: "Fehler beim Erstellen des Kalendereintrags",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ein unerwarteter Fehler ist aufgetreten",
+        variant: "destructive",
+      });
+    }
   };
 
   // CSV Import functions
@@ -481,7 +545,7 @@ export default function KontaktePage() {
 
       toast({
         title: "Import erfolgreich",
-        description: `${newContacts.length} Kontakte wurden erfolgreich importiert.`,
+        description: `${newContacts.length} Leads wurden erfolgreich importiert.`,
         variant: "success",
       });
 
@@ -512,9 +576,9 @@ export default function KontaktePage() {
       // Check if there are contacts to export
       if (contactsToExport.length === 0) {
         toast({
-          title: "Keine Kontakte zum Exportieren",
+          title: "Keine Leads zum Exportieren",
           description:
-            "Es sind keine Kontakte vorhanden, die exportiert werden können.",
+            "Es sind keine Leads vorhanden, die exportiert werden können.",
           variant: "destructive",
         });
         return;
@@ -527,7 +591,7 @@ export default function KontaktePage() {
 
         // Generate filename with current date
         const date = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
-        const filename = `kontakte_export_${date}.csv`;
+        const filename = `leads_export_${date}.csv`;
 
         // Trigger download
         downloadCSV(csvContent, filename);
@@ -535,7 +599,7 @@ export default function KontaktePage() {
         // Show success message
         toast({
           title: "Export erfolgreich",
-          description: `${contactsToExport.length} Kontakte wurden erfolgreich exportiert.`,
+          description: `${contactsToExport.length} Leads wurden erfolgreich exportiert.`,
           variant: "success",
         });
       });
@@ -553,33 +617,157 @@ export default function KontaktePage() {
   };
 
   // Add dummy contacts for testing
-  const addDummyContacts = () => {
-    // Extract tags from existing contacts or use default tags
-    const extractedTags =
-      contacts.length > 0
-        ? contacts
-            .flatMap((contact) => contact.tags)
-            .filter(
-              (tag, index, self) =>
-                self.findIndex((t) => t.id === tag.id) === index,
-            )
+  const addDummyContacts = (status: "Lead" | "Kunde" | "Potenzial") => {
+    // Use available tags from state, or create default ones if none exist
+    const tagsToUse =
+      availableTags.length > 0
+        ? availableTags
         : [
-            { id: "1", name: "Kunde", color: "#3b82f6" },
-            { id: "2", name: "Interessent", color: "#8b5cf6" },
-            { id: "3", name: "Aktiv", color: "#22c55e" },
-            { id: "4", name: "Inaktiv", color: "#ef4444" },
-            { id: "5", name: "VIP", color: "#f59e0b" },
+            {
+              id: "1",
+              name: "Kunde",
+              color: "#3b82f6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "2",
+              name: "Interessent",
+              color: "#8b5cf6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "3",
+              name: "Aktiv",
+              color: "#22c55e",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "4",
+              name: "Inaktiv",
+              color: "#ef4444",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "5",
+              name: "VIP",
+              color: "#f59e0b",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
           ];
 
-    // Generate 20 random contacts
-    const dummyContacts = generateRandomContacts(20, extractedTags);
+    // Generate 20 random contacts with specified status
+    const dummyContacts = generateRandomContacts(20, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
 
     // Add to existing contacts
     setContacts((prevContacts) => [...prevContacts, ...dummyContacts]);
 
+    const statusLabel =
+      status === "Lead"
+        ? "Leads"
+        : status === "Kunde"
+          ? "Kunden"
+          : "Potenziale";
+    toast({
+      title: `Dummy-${statusLabel} hinzugefügt`,
+      description: `20 zufällige ${statusLabel} wurden erfolgreich hinzugefügt.`,
+      variant: "success",
+    });
+  };
+
+  // Add 5 dummy contacts in each category for testing
+  const addAllDummyContacts = () => {
+    // Use available tags from state, or create default ones if none exist
+    const tagsToUse =
+      availableTags.length > 0
+        ? availableTags
+        : [
+            {
+              id: "1",
+              name: "Kunde",
+              color: "#3b82f6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "2",
+              name: "Interessent",
+              color: "#8b5cf6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "3",
+              name: "Aktiv",
+              color: "#22c55e",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "4",
+              name: "Inaktiv",
+              color: "#ef4444",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "5",
+              name: "VIP",
+              color: "#f59e0b",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+          ];
+
+    // Generate 5 contacts for each category
+    const leadContacts = generateRandomContacts(5, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status: "Lead" as const,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
+
+    const customerContacts = generateRandomContacts(5, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status: "Kunde" as const,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
+
+    const potentialContacts = generateRandomContacts(5, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status: "Potenzial" as const,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
+
+    // Combine all contacts
+    const allDummyContacts = [
+      ...leadContacts,
+      ...customerContacts,
+      ...potentialContacts,
+    ];
+
+    // Add to existing contacts
+    setContacts((prevContacts) => [...prevContacts, ...allDummyContacts]);
+
     toast({
       title: "Dummy-Kontakte hinzugefügt",
-      description: "20 zufällige Kontakte wurden erfolgreich hinzugefügt.",
+      description:
+        "5 Leads, 5 Kunden und 5 Potenziale wurden erfolgreich hinzugefügt.",
       variant: "success",
     });
   };
@@ -597,7 +785,7 @@ export default function KontaktePage() {
 
       const response = await fetch("/api/kontakte");
       if (!response.ok) {
-        throw new Error(`Fehler beim Laden der Kontakte: ${response.status}`);
+        throw new Error(`Fehler beim Laden der Leads: ${response.status}`);
       }
       const data = await response.json();
       setContacts(data);
@@ -607,7 +795,7 @@ export default function KontaktePage() {
           ? err.message
           : "Ein unbekannter Fehler ist aufgetreten",
       );
-      console.error("Fehler beim Laden der Kontakte:", err);
+      console.error("Fehler beim Laden der Leads:", err);
     } finally {
       setIsLoading(false);
     }
@@ -622,101 +810,163 @@ export default function KontaktePage() {
   return (
     <div className="bg-background p-6 h-full">
       <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Kontakte durchsuchen..."
-            className="pl-10 w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="default" onClick={handleNewContact}>
-            Neuer Kontakt
-          </Button>
-          <Button variant="outline" onClick={addDummyContacts}>
-            20 Dummy-Kontakte
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={handleImportContacts}
-            >
-              <Upload className="h-4 w-4" />
-              <span>CSV Import</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 p-0"
-              onClick={() => {
-                // Open a new dialog with CSV format info
-                const newDialog = document.createElement("dialog");
-                newDialog.className =
-                  "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm";
-                newDialog.innerHTML = `
-                  <div class="bg-background border rounded-lg shadow-lg max-w-md w-full p-6 relative">
-                    <div class="flex flex-col space-y-1.5 mb-4">
-                      <h2 class="text-lg font-semibold">CSV-Format Beispiel</h2>
-                      <p class="text-sm text-muted-foreground">Verwenden Sie dieses Format für den CSV-Import</p>
-                    </div>
-                    <div class="space-y-4 mt-2">
-                      <div class="bg-muted p-4 rounded-md">
-                        <p class="font-medium mb-2 text-sm">Spaltenüberschriften:</p>
-                        <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
-                          Firmenname, Anrede, Vorname, Nachname, Telefonnummer, E-Mail-Adresse, Notizen, Tags
-                        </pre>
-                      </div>
-                      <div class="bg-muted p-4 rounded-md">
-                        <p class="font-medium mb-2 text-sm">Beispieldaten:</p>
-                        <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
-                          Musterfirma GmbH, Herr, Max, Mustermann, +49 123 4567890, max@beispiel.de, Rückruf vereinbart, Kunde;VIP
-                        </pre>
-                      </div>
-                      <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md mt-2">
-                        <div class="flex items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 16v-4"/>
-                            <path d="M12 8h.01"/>
-                          </svg>
-                          <h3 class="text-sm font-medium">Hinweis zu Tags</h3>
-                        </div>
-                        <p class="text-xs mt-1">Tags können mit Semikolon (;) getrennt werden, z.B. "Kunde;VIP"</p>
-                      </div>
-                    </div>
-                    <button class="mt-4 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2" id="closeDialogBtn">Schließen</button>
-                  </div>
-                `;
-                document.body.appendChild(newDialog);
-                newDialog.showModal();
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder={`${viewMode === "customers" ? "Kunden" : viewMode === "potentials" ? "Potenziale" : "Leads"} durchsuchen...`}
+              className="pl-10 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
-                // Add event listener for the close button
-                const closeButton = newDialog.querySelector("#closeDialogBtn");
-                if (closeButton) {
-                  closeButton.addEventListener("click", () => {
-                    newDialog.close();
-                    document.body.removeChild(newDialog);
-                  });
-                }
-
-                // Close when clicking outside the dialog
-                newDialog.addEventListener("click", (e) => {
-                  if (e.target === newDialog) {
-                    newDialog.close();
-                    document.body.removeChild(newDialog);
-                  }
-                });
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === "leads" ? "default" : "outline"}
+              onClick={() => setViewMode("leads")}
+              className="text-sm w-24"
+              style={{
+                backgroundColor:
+                  viewMode === "leads" ? "#3b82f6" : "transparent",
+                color: viewMode === "leads" ? "white" : "#3b82f6",
+                borderColor: "#3b82f6",
               }}
             >
-              <Info className="h-4 w-4 text-muted-foreground" />
+              Leads
+            </Button>
+            <Button
+              variant={viewMode === "potentials" ? "default" : "outline"}
+              onClick={() => setViewMode("potentials")}
+              className="text-sm w-24"
+              style={{
+                backgroundColor:
+                  viewMode === "potentials" ? "#8b5cf6" : "transparent",
+                color: viewMode === "potentials" ? "white" : "#8b5cf6",
+                borderColor: "#8b5cf6",
+              }}
+            >
+              Potenziale
+            </Button>
+            <Button
+              variant={viewMode === "customers" ? "default" : "outline"}
+              onClick={() => setViewMode("customers")}
+              className="text-sm w-24"
+              style={{
+                backgroundColor:
+                  viewMode === "customers" ? "#22c55e" : "transparent",
+                color: viewMode === "customers" ? "white" : "#22c55e",
+                borderColor: "#22c55e",
+              }}
+            >
+              Kunden
             </Button>
           </div>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button
+            variant="default"
+            className="flex-1 min-w-[120px]"
+            onClick={() =>
+              handleNewContact(
+                viewMode === "customers"
+                  ? "Kunde"
+                  : viewMode === "potentials"
+                    ? "Potenzial"
+                    : "Lead",
+              )
+            }
+          >
+            {viewMode === "customers"
+              ? "Neuer Kunde"
+              : viewMode === "potentials"
+                ? "Neues Potenzial"
+                : "Neuer Lead"}
+          </Button>
           <Button
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex-1 min-w-[120px]"
+            onClick={addAllDummyContacts}
+          >
+            5 je Kategorie
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 flex-1 min-w-[120px]"
+            onClick={handleImportContacts}
+          >
+            <Upload className="h-4 w-4" />
+            <span>CSV Import</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 p-0 flex-shrink-0"
+            onClick={() => {
+              // Open a new dialog with CSV format info
+              const newDialog = document.createElement("dialog");
+              newDialog.className =
+                "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm";
+              newDialog.innerHTML = `
+                <div class="bg-background border rounded-lg shadow-lg max-w-md w-full p-6 relative">
+                  <div class="flex flex-col space-y-1.5 mb-4">
+                    <h2 class="text-lg font-semibold">CSV-Format Beispiel</h2>
+                    <p class="text-sm text-muted-foreground">Verwenden Sie dieses Format für den CSV-Import</p>
+                  </div>
+                  <div class="space-y-4 mt-2">
+                    <div class="bg-muted p-4 rounded-md">
+                      <p class="font-medium mb-2 text-sm">Spaltenüberschriften:</p>
+                      <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
+                        Firmenname, Anrede, Vorname, Nachname, Telefonnummer, E-Mail-Adresse, Notizen, Tags
+                      </pre>
+                    </div>
+                    <div class="bg-muted p-4 rounded-md">
+                      <p class="font-medium mb-2 text-sm">Beispieldaten:</p>
+                      <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
+                        Musterfirma GmbH, Herr, Max, Mustermann, +49 123 4567890, max@beispiel.de, Rückruf vereinbart, Kunde;VIP
+                      </pre>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md mt-2">
+                      <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M12 16v-4"/>
+                          <path d="M12 8h.01"/>
+                        </svg>
+                        <h3 class="text-sm font-medium">Hinweis zu Tags</h3>
+                      </div>
+                      <p class="text-xs mt-1">Tags können mit Semikolon (;) getrennt werden, z.B. "Kunde;VIP"</p>
+                    </div>
+                  </div>
+                  <button class="mt-4 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2" id="closeDialogBtn">Schließen</button>
+                </div>
+              `;
+              document.body.appendChild(newDialog);
+              newDialog.showModal();
+
+              // Add event listener for the close button
+              const closeButton = newDialog.querySelector("#closeDialogBtn");
+              if (closeButton) {
+                closeButton.addEventListener("click", () => {
+                  newDialog.close();
+                  document.body.removeChild(newDialog);
+                });
+              }
+
+              // Close when clicking outside the dialog
+              newDialog.addEventListener("click", (e) => {
+                if (e.target === newDialog) {
+                  newDialog.close();
+                  document.body.removeChild(newDialog);
+                }
+              });
+            }}
+          >
+            <Info className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 flex-1 min-w-[120px]"
             onClick={handleExportContacts}
           >
             <Download className="h-4 w-4" />
@@ -728,9 +978,7 @@ export default function KontaktePage() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">
-            Kontakte werden geladen...
-          </p>
+          <p className="mt-4 text-muted-foreground">Leads werden geladen...</p>
         </div>
       ) : error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-6 text-center">
@@ -748,18 +996,24 @@ export default function KontaktePage() {
           availableTags={availableTags}
           onAddTag={handleAddTagToContacts}
           onCreateTag={handleCreateTag}
+          onAddToCalendar={handleAddToCalendar}
         />
       )}
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {currentContact ? "Kontakt bearbeiten" : "Neuer Kontakt"}
+              {currentContact
+                ? `${currentContact.status} bearbeiten`
+                : preSelectedStatus
+                  ? `${preSelectedStatus} anlegen`
+                  : "Neuer Lead"}
             </DialogTitle>
           </DialogHeader>
           <ContactForm
             contact={currentContact}
+            preSelectedStatus={preSelectedStatus}
             onSave={handleSaveContact}
             onCancel={handleCloseForm}
             availableTags={availableTags}
@@ -776,9 +1030,9 @@ export default function KontaktePage() {
       >
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Kontakte importieren</DialogTitle>
+            <DialogTitle>Leads importieren</DialogTitle>
             <DialogDescription>
-              Importieren Sie Ihre Kontakte aus einer CSV-Datei.
+              Importieren Sie Ihre Leads aus einer CSV-Datei.
             </DialogDescription>
           </DialogHeader>
 
@@ -979,11 +1233,9 @@ export default function KontaktePage() {
             <TabsContent value="importing" className="space-y-4 mt-4">
               <div className="flex flex-col items-center justify-center py-12">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <h3 className="text-lg font-medium">
-                  Kontakte werden importiert
-                </h3>
+                <h3 className="text-lg font-medium">Leads werden importiert</h3>
                 <p className="text-sm text-muted-foreground">
-                  Bitte warten Sie, während Ihre Kontakte importiert werden...
+                  Bitte warten Sie, während Ihre Leads importiert werden...
                 </p>
               </div>
             </TabsContent>

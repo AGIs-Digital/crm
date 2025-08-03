@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Contact, ContactCreateRequest, Tag } from "@/types/Contact";
 import { mockContacts } from "@/data/mockContacts";
 
-// In-memory storage for contacts
+// In-memory storage for leads
 // Initialize with mock data
 let contacts: Contact[] = [...mockContacts];
 
@@ -19,21 +19,69 @@ let availableTags: Tag[] = [
 
 /**
  * GET /api/kontakte
- * Returns all contacts or tags based on the pathname
+ * Returns all leads or tags based on the pathname and query parameters
+ *
+ * Supports filtering by tags:
+ * - /api/kontakte?tags=1,2,3 - Returns leads with ANY of the specified tags
+ * - /api/kontakte?tags=1,2,3&match=all - Returns leads with ALL of the specified tags
+ * - /api/kontakte?excludeTags=1,2,3 - Returns leads without ANY of the specified tags
+ * - /api/kontakte?pipeline=true - Returns only leads with pipeline tags
+ * - /api/kontakte?pipeline=false - Returns only leads without pipeline tags
  */
 export async function GET(request: NextRequest) {
-  const { pathname } = new URL(request.url);
+  const { pathname, searchParams } = new URL(request.url);
 
   if (pathname.endsWith("/tags")) {
     return NextResponse.json(availableTags);
   }
 
-  return NextResponse.json(contacts);
+  // Get filter parameters
+  const tagIds = searchParams.get("tags")?.split(",") || [];
+  const excludeTagIds = searchParams.get("excludeTags")?.split(",") || [];
+  const matchAll = searchParams.get("match") === "all";
+  const pipelineFilter = searchParams.get("pipeline");
+
+  // Apply filters
+  let filteredContacts = [...contacts];
+
+  // Filter by tags to include
+  if (tagIds.length > 0) {
+    filteredContacts = filteredContacts.filter((contact) => {
+      const contactTagIds = contact.tags.map((tag) => tag.id);
+      if (matchAll) {
+        // ALL specified tags must be present
+        return tagIds.every((tagId) => contactTagIds.includes(tagId));
+      } else {
+        // ANY of the specified tags must be present
+        return tagIds.some((tagId) => contactTagIds.includes(tagId));
+      }
+    });
+  }
+
+  // Filter by tags to exclude
+  if (excludeTagIds.length > 0) {
+    filteredContacts = filteredContacts.filter((contact) => {
+      const contactTagIds = contact.tags.map((tag) => tag.id);
+      // NONE of the excluded tags should be present
+      return !excludeTagIds.some((tagId) => contactTagIds.includes(tagId));
+    });
+  }
+
+  // Filter by pipeline status
+  if (pipelineFilter !== null) {
+    const includePipeline = pipelineFilter === "true";
+    filteredContacts = filteredContacts.filter((contact) => {
+      const hasPipelineTag = contact.tags.some((tag) => tag.isPipelineTag);
+      return includePipeline ? hasPipelineTag : !hasPipelineTag;
+    });
+  }
+
+  return NextResponse.json(filteredContacts);
 }
 
 /**
  * POST /api/kontakte
- * Creates a new contact
+ * Creates a new lead
  *
  * Expected JSON structure for make.com or other external services:
  * {
@@ -43,7 +91,7 @@ export async function GET(request: NextRequest) {
  *   "last_name": "Mustermann",
  *   "phone": "+49 123 456789",
  *   "email": "max@firma.de",
- *   "notes": "Wichtiger Kunde",
+ *   "notes": "Wichtiger Lead",
  *   "tags": ["1", "3"] // Array of tag IDs
  * }
  */
@@ -67,7 +115,7 @@ export async function POST(request: NextRequest) {
       ? availableTags.filter((tag) => data.tags?.includes(tag.id))
       : [];
 
-    // Create new contact
+    // Create new lead
     const newContact: Contact = {
       id: uuidv4(),
       company_name: data.company_name,
@@ -77,6 +125,8 @@ export async function POST(request: NextRequest) {
       phone: data.phone,
       email: data.email,
       notes: data.notes || "",
+      reminder_date: data.reminder_date ? new Date(data.reminder_date) : null,
+      reminder_note: data.reminder_note || "",
       gespraechszusammenfassung: [],
       tags: tags,
       created_at: new Date(),

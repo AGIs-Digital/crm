@@ -5,11 +5,54 @@ import { Tag } from "@/types/Contact";
 // Import the shared tags array from the parent route
 // In a real application, this would be a database
 let availableTags: Tag[] = [
-  { id: "1", name: "Kunde", color: "#3b82f6" },
-  { id: "2", name: "Interessent", color: "#8b5cf6" },
-  { id: "3", name: "Aktiv", color: "#22c55e" },
-  { id: "4", name: "Inaktiv", color: "#ef4444" },
-  { id: "5", name: "VIP", color: "#f59e0b" },
+  {
+    id: "1",
+    name: "KI-Anruf",
+    color: "#3b82f6",
+    icon: "🤖",
+    isSystemTag: true,
+    isPipelineTag: true,
+  },
+  {
+    id: "2",
+    name: "Follow-up",
+    color: "#ef4444",
+    icon: "🔁",
+    isSystemTag: true,
+    isPipelineTag: true,
+  },
+  {
+    id: "3",
+    name: "Angebot",
+    color: "#22c55e",
+    icon: "📄",
+    isSystemTag: true,
+    isPipelineTag: true,
+  },
+  {
+    id: "4",
+    name: "Potenzial",
+    color: "#8b5cf6",
+    icon: "💡",
+    isSystemTag: true,
+    isPipelineTag: true,
+  },
+  {
+    id: "5",
+    name: "Wiedervorlage",
+    color: "#f59e0b",
+    icon: "⏰",
+    isSystemTag: true,
+    isPipelineTag: true,
+  },
+  {
+    id: "6",
+    name: "Abschluss",
+    color: "#6b7280",
+    icon: "✅",
+    isSystemTag: true,
+    isPipelineTag: true,
+  },
 ];
 
 /**
