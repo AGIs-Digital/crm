@@ -114,40 +114,26 @@ export default function KontaktePage() {
     }
   };
 
-  // Filter contacts based on search term and hide pipeline leads by default
+  // Filter contacts based on search term and status
   const [showPipelineLeads, setShowPipelineLeads] = useState(false);
   const [viewMode, setViewMode] = useState<
     "leads" | "customers" | "potentials"
   >("leads");
 
   const filteredContacts = contacts.filter((contact) => {
-    // Check if contact has any pipeline tags
-    const hasPipelineTag = contact.tags.some((tag) => tag.isPipelineTag);
-
-    // Check if contact has 'Abschluss' tag (customer)
-    const isCustomer = contact.tags.some((tag) => tag.name === "Abschluss");
-
-    // Check if contact has 'Potenzial' tag (potential)
-    const isPotential = contact.tags.some((tag) => tag.name === "Potenzial");
-
     // Filter by search term
     const searchString =
       `${contact.company_name} ${contact.first_name} ${contact.last_name} ${contact.email}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
 
-    // Apply filters based on view mode
+    // Apply filters based on view mode and contact status
     if (viewMode === "customers") {
-      return matchesSearch && isCustomer;
+      return matchesSearch && contact.status === "Kunde";
     } else if (viewMode === "potentials") {
-      return matchesSearch && isPotential;
+      return matchesSearch && contact.status === "Potenzial";
     } else {
-      // In leads view, exclude customers and potentials, and respect pipeline toggle
-      return (
-        matchesSearch &&
-        !isCustomer &&
-        !isPotential &&
-        (showPipelineLeads || !hasPipelineTag)
-      );
+      // In leads view, show only leads
+      return matchesSearch && contact.status === "Lead";
     }
   });
 
@@ -162,9 +148,14 @@ export default function KontaktePage() {
     setContacts(contacts.filter((contact) => contact.id !== contactId));
   };
 
-  // Handle new contact
-  const handleNewContact = () => {
+  // Handle new contact with pre-selected status
+  const [preSelectedStatus, setPreSelectedStatus] = useState<
+    "Lead" | "Kunde" | "Potenzial" | null
+  >(null);
+
+  const handleNewContact = (status?: "Lead" | "Kunde" | "Potenzial") => {
     setCurrentContact(undefined);
+    setPreSelectedStatus(status || "Lead");
     setIsFormOpen(true);
   };
 
@@ -626,33 +617,157 @@ export default function KontaktePage() {
   };
 
   // Add dummy contacts for testing
-  const addDummyContacts = () => {
-    // Extract tags from existing contacts or use default tags
-    const extractedTags =
-      contacts.length > 0
-        ? contacts
-            .flatMap((contact) => contact.tags)
-            .filter(
-              (tag, index, self) =>
-                self.findIndex((t) => t.id === tag.id) === index,
-            )
+  const addDummyContacts = (status: "Lead" | "Kunde" | "Potenzial") => {
+    // Use available tags from state, or create default ones if none exist
+    const tagsToUse =
+      availableTags.length > 0
+        ? availableTags
         : [
-            { id: "1", name: "Kunde", color: "#3b82f6" },
-            { id: "2", name: "Interessent", color: "#8b5cf6" },
-            { id: "3", name: "Aktiv", color: "#22c55e" },
-            { id: "4", name: "Inaktiv", color: "#ef4444" },
-            { id: "5", name: "VIP", color: "#f59e0b" },
+            {
+              id: "1",
+              name: "Kunde",
+              color: "#3b82f6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "2",
+              name: "Interessent",
+              color: "#8b5cf6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "3",
+              name: "Aktiv",
+              color: "#22c55e",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "4",
+              name: "Inaktiv",
+              color: "#ef4444",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "5",
+              name: "VIP",
+              color: "#f59e0b",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
           ];
 
-    // Generate 20 random contacts
-    const dummyContacts = generateRandomContacts(20, extractedTags);
+    // Generate 20 random contacts with specified status
+    const dummyContacts = generateRandomContacts(20, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
 
     // Add to existing contacts
     setContacts((prevContacts) => [...prevContacts, ...dummyContacts]);
 
+    const statusLabel =
+      status === "Lead"
+        ? "Leads"
+        : status === "Kunde"
+          ? "Kunden"
+          : "Potenziale";
     toast({
-      title: "Dummy-Leads hinzugefügt",
-      description: "20 zufällige Leads wurden erfolgreich hinzugefügt.",
+      title: `Dummy-${statusLabel} hinzugefügt`,
+      description: `20 zufällige ${statusLabel} wurden erfolgreich hinzugefügt.`,
+      variant: "success",
+    });
+  };
+
+  // Add 5 dummy contacts in each category for testing
+  const addAllDummyContacts = () => {
+    // Use available tags from state, or create default ones if none exist
+    const tagsToUse =
+      availableTags.length > 0
+        ? availableTags
+        : [
+            {
+              id: "1",
+              name: "Kunde",
+              color: "#3b82f6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "2",
+              name: "Interessent",
+              color: "#8b5cf6",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "3",
+              name: "Aktiv",
+              color: "#22c55e",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "4",
+              name: "Inaktiv",
+              color: "#ef4444",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+            {
+              id: "5",
+              name: "VIP",
+              color: "#f59e0b",
+              isSystemTag: false,
+              isPipelineTag: false,
+            },
+          ];
+
+    // Generate 5 contacts for each category
+    const leadContacts = generateRandomContacts(5, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status: "Lead" as const,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
+
+    const customerContacts = generateRandomContacts(5, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status: "Kunde" as const,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
+
+    const potentialContacts = generateRandomContacts(5, tagsToUse).map(
+      (contact) => ({
+        ...contact,
+        status: "Potenzial" as const,
+        is_vip: Math.random() > 0.8, // 20% chance of being VIP
+      }),
+    );
+
+    // Combine all contacts
+    const allDummyContacts = [
+      ...leadContacts,
+      ...customerContacts,
+      ...potentialContacts,
+    ];
+
+    // Add to existing contacts
+    setContacts((prevContacts) => [...prevContacts, ...allDummyContacts]);
+
+    toast({
+      title: "Dummy-Kontakte hinzugefügt",
+      description:
+        "5 Leads, 5 Kunden und 5 Potenziale wurden erfolgreich hinzugefügt.",
       variant: "success",
     });
   };
@@ -710,132 +825,148 @@ export default function KontaktePage() {
             <Button
               variant={viewMode === "leads" ? "default" : "outline"}
               onClick={() => setViewMode("leads")}
-              className="text-sm"
+              className="text-sm w-24"
+              style={{
+                backgroundColor:
+                  viewMode === "leads" ? "#3b82f6" : "transparent",
+                color: viewMode === "leads" ? "white" : "#3b82f6",
+                borderColor: "#3b82f6",
+              }}
             >
               Leads
             </Button>
             <Button
-              variant={viewMode === "customers" ? "default" : "outline"}
-              onClick={() => setViewMode("customers")}
-              className="text-sm"
-            >
-              Kunden
-            </Button>
-            <Button
               variant={viewMode === "potentials" ? "default" : "outline"}
               onClick={() => setViewMode("potentials")}
-              className="text-sm"
+              className="text-sm w-24"
+              style={{
+                backgroundColor:
+                  viewMode === "potentials" ? "#8b5cf6" : "transparent",
+                color: viewMode === "potentials" ? "white" : "#8b5cf6",
+                borderColor: "#8b5cf6",
+              }}
             >
               Potenziale
+            </Button>
+            <Button
+              variant={viewMode === "customers" ? "default" : "outline"}
+              onClick={() => setViewMode("customers")}
+              className="text-sm w-24"
+              style={{
+                backgroundColor:
+                  viewMode === "customers" ? "#22c55e" : "transparent",
+                color: viewMode === "customers" ? "white" : "#22c55e",
+                borderColor: "#22c55e",
+              }}
+            >
+              Kunden
             </Button>
           </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          {viewMode === "leads" && (
-            <div className="flex items-center mr-4">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={showPipelineLeads}
-                  onChange={(e) => setShowPipelineLeads(e.target.checked)}
-                />
-                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                  Pipeline Leads anzeigen
-                </span>
-              </label>
-            </div>
-          )}
-          <Button variant="default" onClick={handleNewContact}>
+          <Button
+            variant="default"
+            className="flex-1 min-w-[120px]"
+            onClick={() =>
+              handleNewContact(
+                viewMode === "customers"
+                  ? "Kunde"
+                  : viewMode === "potentials"
+                    ? "Potenzial"
+                    : "Lead",
+              )
+            }
+          >
             {viewMode === "customers"
               ? "Neuer Kunde"
               : viewMode === "potentials"
                 ? "Neues Potenzial"
                 : "Neuer Lead"}
           </Button>
-          <Button variant="outline" onClick={addDummyContacts}>
-            20 Dummy-Leads
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={handleImportContacts}
-            >
-              <Upload className="h-4 w-4" />
-              <span>CSV Import</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 p-0"
-              onClick={() => {
-                // Open a new dialog with CSV format info
-                const newDialog = document.createElement("dialog");
-                newDialog.className =
-                  "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm";
-                newDialog.innerHTML = `
-                  <div class="bg-background border rounded-lg shadow-lg max-w-md w-full p-6 relative">
-                    <div class="flex flex-col space-y-1.5 mb-4">
-                      <h2 class="text-lg font-semibold">CSV-Format Beispiel</h2>
-                      <p class="text-sm text-muted-foreground">Verwenden Sie dieses Format für den CSV-Import</p>
-                    </div>
-                    <div class="space-y-4 mt-2">
-                      <div class="bg-muted p-4 rounded-md">
-                        <p class="font-medium mb-2 text-sm">Spaltenüberschriften:</p>
-                        <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
-                          Firmenname, Anrede, Vorname, Nachname, Telefonnummer, E-Mail-Adresse, Notizen, Tags
-                        </pre>
-                      </div>
-                      <div class="bg-muted p-4 rounded-md">
-                        <p class="font-medium mb-2 text-sm">Beispieldaten:</p>
-                        <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
-                          Musterfirma GmbH, Herr, Max, Mustermann, +49 123 4567890, max@beispiel.de, Rückruf vereinbart, Kunde;VIP
-                        </pre>
-                      </div>
-                      <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md mt-2">
-                        <div class="flex items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 16v-4"/>
-                            <path d="M12 8h.01"/>
-                          </svg>
-                          <h3 class="text-sm font-medium">Hinweis zu Tags</h3>
-                        </div>
-                        <p class="text-xs mt-1">Tags können mit Semikolon (;) getrennt werden, z.B. "Kunde;VIP"</p>
-                      </div>
-                    </div>
-                    <button class="mt-4 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2" id="closeDialogBtn">Schließen</button>
-                  </div>
-                `;
-                document.body.appendChild(newDialog);
-                newDialog.showModal();
-
-                // Add event listener for the close button
-                const closeButton = newDialog.querySelector("#closeDialogBtn");
-                if (closeButton) {
-                  closeButton.addEventListener("click", () => {
-                    newDialog.close();
-                    document.body.removeChild(newDialog);
-                  });
-                }
-
-                // Close when clicking outside the dialog
-                newDialog.addEventListener("click", (e) => {
-                  if (e.target === newDialog) {
-                    newDialog.close();
-                    document.body.removeChild(newDialog);
-                  }
-                });
-              }}
-            >
-              <Info className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </div>
           <Button
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex-1 min-w-[120px]"
+            onClick={addAllDummyContacts}
+          >
+            5 je Kategorie
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 flex-1 min-w-[120px]"
+            onClick={handleImportContacts}
+          >
+            <Upload className="h-4 w-4" />
+            <span>CSV Import</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 p-0 flex-shrink-0"
+            onClick={() => {
+              // Open a new dialog with CSV format info
+              const newDialog = document.createElement("dialog");
+              newDialog.className =
+                "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm";
+              newDialog.innerHTML = `
+                <div class="bg-background border rounded-lg shadow-lg max-w-md w-full p-6 relative">
+                  <div class="flex flex-col space-y-1.5 mb-4">
+                    <h2 class="text-lg font-semibold">CSV-Format Beispiel</h2>
+                    <p class="text-sm text-muted-foreground">Verwenden Sie dieses Format für den CSV-Import</p>
+                  </div>
+                  <div class="space-y-4 mt-2">
+                    <div class="bg-muted p-4 rounded-md">
+                      <p class="font-medium mb-2 text-sm">Spaltenüberschriften:</p>
+                      <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
+                        Firmenname, Anrede, Vorname, Nachname, Telefonnummer, E-Mail-Adresse, Notizen, Tags
+                      </pre>
+                    </div>
+                    <div class="bg-muted p-4 rounded-md">
+                      <p class="font-medium mb-2 text-sm">Beispieldaten:</p>
+                      <pre class="text-xs overflow-x-auto whitespace-pre-wrap">
+                        Musterfirma GmbH, Herr, Max, Mustermann, +49 123 4567890, max@beispiel.de, Rückruf vereinbart, Kunde;VIP
+                      </pre>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md mt-2">
+                      <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M12 16v-4"/>
+                          <path d="M12 8h.01"/>
+                        </svg>
+                        <h3 class="text-sm font-medium">Hinweis zu Tags</h3>
+                      </div>
+                      <p class="text-xs mt-1">Tags können mit Semikolon (;) getrennt werden, z.B. "Kunde;VIP"</p>
+                    </div>
+                  </div>
+                  <button class="mt-4 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2" id="closeDialogBtn">Schließen</button>
+                </div>
+              `;
+              document.body.appendChild(newDialog);
+              newDialog.showModal();
+
+              // Add event listener for the close button
+              const closeButton = newDialog.querySelector("#closeDialogBtn");
+              if (closeButton) {
+                closeButton.addEventListener("click", () => {
+                  newDialog.close();
+                  document.body.removeChild(newDialog);
+                });
+              }
+
+              // Close when clicking outside the dialog
+              newDialog.addEventListener("click", (e) => {
+                if (e.target === newDialog) {
+                  newDialog.close();
+                  document.body.removeChild(newDialog);
+                }
+              });
+            }}
+          >
+            <Info className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 flex-1 min-w-[120px]"
             onClick={handleExportContacts}
           >
             <Download className="h-4 w-4" />
@@ -870,14 +1001,19 @@ export default function KontaktePage() {
       )}
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {currentContact ? "Lead bearbeiten" : "Neuer Lead"}
+              {currentContact
+                ? `${currentContact.status} bearbeiten`
+                : preSelectedStatus
+                  ? `${preSelectedStatus} anlegen`
+                  : "Neuer Lead"}
             </DialogTitle>
           </DialogHeader>
           <ContactForm
             contact={currentContact}
+            preSelectedStatus={preSelectedStatus}
             onSave={handleSaveContact}
             onCancel={handleCloseForm}
             availableTags={availableTags}

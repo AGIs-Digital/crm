@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Contact, Tag, TimeStampedEntry } from "@/types/Contact";
+import { Contact, Tag, TimeStampedEntry, Reminder } from "@/types/Contact";
 import { TimeStampedTextArea } from "@/components/common/TimeStampedTextArea";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Calendar as CalendarIcon } from "lucide-react";
@@ -37,6 +37,7 @@ import { v4 as uuidv4 } from "uuid";
 
 interface ContactFormProps {
   contact?: Contact;
+  preSelectedStatus?: "Lead" | "Kunde" | "Potenzial" | null;
   onSave: (contact: Partial<Contact>) => void;
   onCancel: () => void;
   availableTags: Tag[];
@@ -44,6 +45,7 @@ interface ContactFormProps {
 
 export function ContactForm({
   contact,
+  preSelectedStatus,
   onSave,
   onCancel,
   availableTags = [],
@@ -61,6 +63,8 @@ export function ContactForm({
       email: "",
       notes: "",
       tags: [],
+      status: preSelectedStatus || "Lead",
+      is_vip: false,
       reminder_date: null,
       reminder_note: "",
     },
@@ -350,6 +354,27 @@ export function ContactForm({
     TimeStampedEntry[]
   >(contact?.gespraechszusammenfassung || []);
 
+  const [reminders, setReminders] = useState<Reminder[]>(
+    contact?.reminders || [],
+  );
+  const [newReminderDate, setNewReminderDate] = useState<Date | null>(null);
+  const [newReminderNote, setNewReminderNote] = useState("");
+
+  // Salutation options
+  const salutationOptions = [
+    "Herr",
+    "Frau",
+    "Dr.",
+    "Prof.",
+    "Prof. Dr.",
+    "Herr Dr.",
+    "Frau Dr.",
+    "Herr Prof.",
+    "Frau Prof.",
+    "Herr Prof. Dr.",
+    "Frau Prof. Dr.",
+  ];
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -443,6 +468,10 @@ export function ContactForm({
       newErrors.last_name = "Nachname ist erforderlich";
     }
 
+    if (!formData.status) {
+      newErrors.status = "Status ist erforderlich";
+    }
+
     // Enhanced email validation
     if (!formData.email?.trim()) {
       newErrors.email = "E-Mail ist erforderlich";
@@ -503,6 +532,7 @@ export function ContactForm({
             phone: fullPhoneNumber,
             tags,
             gespraechszusammenfassung,
+            reminders,
           });
           return;
         }
@@ -516,6 +546,8 @@ export function ContactForm({
           phone: fullPhoneNumber,
           email: formData.email || "",
           notes: formData.notes || "",
+          status: formData.status || "Lead",
+          is_vip: formData.is_vip || false,
           reminder_date: formData.reminder_date
             ? formData.reminder_date.toISOString()
             : null,
@@ -572,6 +604,24 @@ export function ContactForm({
     setGespraechszusammenfassung([...gespraechszusammenfassung, newEntry]);
   };
 
+  const handleAddReminder = () => {
+    if (newReminderDate && newReminderNote.trim()) {
+      const newReminder: Reminder = {
+        id: uuidv4(),
+        date: newReminderDate,
+        note: newReminderNote.trim(),
+        created_at: new Date(),
+      };
+      setReminders([...reminders, newReminder]);
+      setNewReminderDate(null);
+      setNewReminderNote("");
+    }
+  };
+
+  const handleDeleteReminder = (reminderId: string) => {
+    setReminders(reminders.filter((reminder) => reminder.id !== reminderId));
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -593,14 +643,23 @@ export function ContactForm({
           <Label htmlFor="salutation" id="salutation-label">
             Anrede
           </Label>
-          <Input
-            id="salutation"
-            name="salutation"
-            value={formData.salutation}
-            onChange={handleChange}
-            aria-labelledby="salutation-label"
-            placeholder="z.B. Herr, Frau, Dr."
-          />
+          <Select
+            value={formData.salutation || ""}
+            onValueChange={(value) =>
+              setFormData((prev) => ({ ...prev, salutation: value }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Anrede auswählen" />
+            </SelectTrigger>
+            <SelectContent>
+              {salutationOptions.map((salutation) => (
+                <SelectItem key={salutation} value={salutation}>
+                  {salutation}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
@@ -812,6 +871,49 @@ export function ContactForm({
         />
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="space-y-2">
+          <Label>VIP</Label>
+          <Label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.is_vip || false}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, is_vip: e.target.checked }))
+              }
+              className="w-4 h-4 rounded border-gray-300 text-[#004AAD] focus:ring-[#004AAD] focus:ring-2"
+            />
+          </Label>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="status" id="status-label">
+            Status *
+          </Label>
+          <Select
+            value={formData.status || ""}
+            onValueChange={(value) =>
+              setFormData((prev) => ({
+                ...prev,
+                status: value as "Lead" | "Kunde" | "Potenzial",
+              }))
+            }
+          >
+            <SelectTrigger className={errors.status ? "border-red-500" : ""}>
+              <SelectValue placeholder="Status auswählen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Lead">Lead</SelectItem>
+              <SelectItem value="Kunde">Kunde</SelectItem>
+              <SelectItem value="Potenzial">Potenzial</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.status && (
+            <p className="text-red-500 text-sm mt-1">{errors.status}</p>
+          )}
+        </div>
+      </div>
+
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <Label>Tags</Label>
@@ -827,51 +929,22 @@ export function ContactForm({
           </Button>
         </div>
 
-        {/* System/Pipeline Tags Section */}
-        <div className="mb-4">
-          <h4 className="text-sm font-medium mb-2">Pipeline-Status</h4>
-          <div className="flex flex-wrap gap-2">
-            {localAvailableTags
-              .filter((tag) => tag.isPipelineTag)
-              .map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${selectedTags.includes(tag.id) ? "ring-2 ring-offset-1" : "opacity-70"}`}
-                  style={{
-                    backgroundColor: `${tag.color}20`,
-                    color: tag.color,
-                  }}
-                  onClick={() => handleTagToggle(tag.id)}
-                >
-                  {tag.icon && <span className="text-xs">{tag.icon}</span>}
-                  {tag.name}
-                </button>
-              ))}
-          </div>
-        </div>
-
-        {/* Regular Tags Section */}
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {localAvailableTags
-              .filter((tag) => !tag.isPipelineTag)
-              .map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${selectedTags.includes(tag.id) ? "ring-2 ring-offset-1" : "opacity-70"}`}
-                  style={{
-                    backgroundColor: `${tag.color}20`,
-                    color: tag.color,
-                  }}
-                  onClick={() => handleTagToggle(tag.id)}
-                >
-                  {tag.icon && <span className="text-xs">{tag.icon}</span>}
-                  {tag.name}
-                </button>
-              ))}
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {localAvailableTags.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${selectedTags.includes(tag.id) ? "ring-2 ring-offset-1" : "opacity-70"}`}
+              style={{
+                backgroundColor: `${tag.color}20`,
+                color: tag.color,
+              }}
+              onClick={() => handleTagToggle(tag.id)}
+            >
+              {tag.icon && <span className="text-xs">{tag.icon}</span>}
+              {tag.name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -931,70 +1004,112 @@ export function ContactForm({
       </Dialog>
 
       <div className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="reminder_date" id="reminder_date-label">
-            Wiedervorlage
-          </Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.reminder_date && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.reminder_date ? (
-                      format(formData.reminder_date, "PPP", { locale: de })
-                    ) : (
-                      <span>Datum auswählen</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.reminder_date || undefined}
-                    onSelect={(date) =>
-                      setFormData((prev) => ({ ...prev, reminder_date: date }))
-                    }
-                    initialFocus
-                    locale={de}
-                  />
-                </PopoverContent>
-              </Popover>
-              {formData.reminder_date && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() =>
-                    setFormData((prev) => ({ ...prev, reminder_date: null }))
-                  }
-                >
-                  Zurücksetzen
-                </Button>
-              )}
-            </div>
-            <div>
-              <Textarea
-                id="reminder_note"
-                name="reminder_note"
-                value={formData.reminder_note || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    reminder_note: e.target.value,
-                  }))
-                }
-                placeholder="Notiz zur Wiedervorlage für diesen Lead"
-                className="h-[120px]"
-              />
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Label className="text-base font-medium">Wiedervorlagen</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleAddReminder}
+              disabled={!newReminderDate || !newReminderNote.trim()}
+            >
+              <Plus className="h-4 w-4" />
+              <span>Wiedervorlage hinzufügen</span>
+            </Button>
+          </div>
+
+          {/* Neue Wiedervorlage erstellen */}
+          <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new_reminder_date">Datum</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newReminderDate && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newReminderDate ? (
+                        format(newReminderDate, "PPP", { locale: de })
+                      ) : (
+                        <span>Datum auswählen</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newReminderDate || undefined}
+                      onSelect={setNewReminderDate}
+                      initialFocus
+                      locale={de}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new_reminder_note">Notiz</Label>
+                <Textarea
+                  id="new_reminder_note"
+                  value={newReminderNote}
+                  onChange={(e) => setNewReminderNote(e.target.value)}
+                  placeholder="Notiz zur Wiedervorlage"
+                  className="h-[100px]"
+                />
+              </div>
             </div>
           </div>
+
+          {/* Liste der Wiedervorlagen */}
+          {reminders.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Geplante Wiedervorlagen ({reminders.length})
+              </Label>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {reminders
+                  .sort(
+                    (a, b) =>
+                      new Date(a.date).getTime() - new Date(b.date).getTime(),
+                  )
+                  .map((reminder) => (
+                    <div
+                      key={reminder.id}
+                      className="flex items-start justify-between p-3 border rounded-lg bg-white"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-sm">
+                            {format(new Date(reminder.date), "PPP", {
+                              locale: de,
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {reminder.note}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteReminder(reminder.id)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">

@@ -12,6 +12,13 @@ export interface TimeStampedEntry {
   text: string;
 }
 
+export interface Reminder {
+  id: string;
+  date: Date;
+  note: string;
+  created_at: Date;
+}
+
 export interface Contact {
   id: string;
   company_name: string; // firmenname
@@ -23,8 +30,11 @@ export interface Contact {
   notes: string; // notizen
   gespraechszusammenfassung: TimeStampedEntry[]; // gespraechszusammenfassungen
   tags: Tag[];
-  reminder_date?: Date | null; // Datum für Wiedervorlage
-  reminder_note?: string; // Notiz zur Wiedervorlage
+  status: "Lead" | "Kunde" | "Potenzial"; // Status des Kontakts
+  is_vip: boolean; // VIP-Status
+  reminders: Reminder[]; // Liste aller Wiedervorlagen
+  reminder_date?: Date | null; // Datum für Wiedervorlage (deprecated, use reminders)
+  reminder_note?: string; // Notiz zur Wiedervorlage (deprecated, use reminders)
   created_at: Date;
   updated_at: Date;
 }
@@ -38,6 +48,8 @@ export interface ContactCreateRequest {
   phone: string;
   email: string;
   notes?: string;
+  status: "Lead" | "Kunde" | "Potenzial"; // Status des Kontakts
+  is_vip: boolean; // VIP-Status
   reminder_date?: string | null; // ISO-String für Wiedervorlage
   reminder_note?: string; // Notiz zur Wiedervorlage
   tags?: string[];

@@ -351,15 +351,18 @@ export function ContactTable({
                     aria-label="Alle Leads auswählen"
                   />
                 </th>
+                <th className="py-3 px-4 text-left font-medium">Status</th>
                 <th className="py-3 px-4 text-left font-medium">Firmenname</th>
                 <th className="py-3 px-4 text-left font-medium">Name</th>
                 <th className="py-3 px-4 text-left font-medium">Telefon</th>
                 <th className="py-3 px-4 text-left font-medium">E-Mail</th>
-                <th className="py-3 px-4 text-left font-medium">Status</th>
                 <th className="py-3 px-4 text-left font-medium">
                   Wiedervorlage
                 </th>
-                <th className="py-3 px-4 text-left font-medium">Aktionen</th>
+                <th className="py-3 px-4 text-left font-medium">Tags</th>
+                <th className="py-3 px-4 text-left font-medium text-center">
+                  <Trash className="h-4 w-4 mx-auto" />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -398,6 +401,40 @@ export function ContactTable({
                       }
                       aria-label={`${contact.first_name} ${contact.last_name} auswählen`}
                     />
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="px-2 py-1 text-xs rounded-full font-medium"
+                        style={{
+                          backgroundColor:
+                            contact.status === "Lead"
+                              ? "#3b82f620"
+                              : contact.status === "Kunde"
+                                ? "#22c55e20"
+                                : "#8b5cf620",
+                          color:
+                            contact.status === "Lead"
+                              ? "#3b82f6"
+                              : contact.status === "Kunde"
+                                ? "#22c55e"
+                                : "#8b5cf6",
+                        }}
+                      >
+                        {contact.status}
+                      </span>
+                      {contact.is_vip && (
+                        <span
+                          className="px-2 py-1 text-xs rounded-full font-medium"
+                          style={{
+                            backgroundColor: "#f59e0b20",
+                            color: "#f59e0b",
+                          }}
+                        >
+                          VIP
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td
                     className="py-3 px-4 opacity-100"
@@ -440,6 +477,29 @@ export function ContactTable({
                   <td className="py-3 px-4">{contact.phone}</td>
                   <td className="py-3 px-4">{contact.email}</td>
                   <td className="py-3 px-4">
+                    {contact.reminder_date ? (
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">
+                          {new Date(contact.reminder_date).toLocaleDateString(
+                            "de-DE",
+                          )}
+                        </span>
+                        {contact.reminder_note && (
+                          <span
+                            className="text-xs text-muted-foreground truncate max-w-[150px]"
+                            title={contact.reminder_note}
+                          >
+                            {contact.reminder_note}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Keine
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
                     <div className="flex flex-wrap gap-1">
                       {/* Display pipeline tags first */}
                       {contact.tags
@@ -479,73 +539,47 @@ export function ContactTable({
                         ))}
                     </div>
                   </td>
-                  <td className="py-3 px-4">
-                    {contact.reminder_date ? (
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">
-                          {new Date(contact.reminder_date).toLocaleDateString(
-                            "de-DE",
-                          )}
-                        </span>
-                        {contact.reminder_note && (
-                          <span
-                            className="text-xs text-muted-foreground truncate max-w-[150px]"
-                            title={contact.reminder_note}
-                          >
-                            {contact.reminder_note}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Keine
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-2">
-                      <div className="flex gap-2">
-                        {contact.reminder_date && onAddToCalendar && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-blue-500"
-                            onClick={(e) => {
-                              e.preventDefault(); // Prevent row click from triggering
-                              if (contact.reminder_date && onAddToCalendar) {
-                                onAddToCalendar(
-                                  contact.id,
-                                  new Date(contact.reminder_date),
-                                  contact.reminder_note || "",
-                                );
-                                toast({
-                                  title: "Kalendereintrag erstellt",
-                                  description: `Wiedervorlage für ${contact.first_name} ${contact.last_name} wurde zum Kalender hinzugefügt.`,
-                                  variant: "success",
-                                });
-                              }
-                            }}
-                            data-calendar-button="true"
-                            aria-label={`Kalendereintrag für ${contact.first_name} ${contact.last_name} erstellen`}
-                          >
-                            <Calendar className="h-4 w-4 mr-1" />
-                            Kalender
-                          </Button>
-                        )}
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex justify-center gap-2">
+                      {contact.reminder_date && onAddToCalendar && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-500"
+                          className="text-blue-500 p-1"
                           onClick={(e) => {
                             e.preventDefault(); // Prevent row click from triggering
-                            handleDeleteClick(contact);
+                            if (contact.reminder_date && onAddToCalendar) {
+                              onAddToCalendar(
+                                contact.id,
+                                new Date(contact.reminder_date),
+                                contact.reminder_note || "",
+                              );
+                              toast({
+                                title: "Kalendereintrag erstellt",
+                                description: `Wiedervorlage für ${contact.first_name} ${contact.last_name} wurde zum Kalender hinzugefügt.`,
+                                variant: "success",
+                              });
+                            }
                           }}
-                          data-delete-button="true"
-                          aria-label={`${contact.first_name} ${contact.last_name} löschen`}
+                          data-calendar-button="true"
+                          aria-label={`Kalendereintrag für ${contact.first_name} ${contact.last_name} erstellen`}
                         >
-                          Löschen
+                          <Calendar className="h-4 w-4" />
                         </Button>
-                      </div>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 p-1"
+                        onClick={(e) => {
+                          e.preventDefault(); // Prevent row click from triggering
+                          handleDeleteClick(contact);
+                        }}
+                        data-delete-button="true"
+                        aria-label={`${contact.first_name} ${contact.last_name} löschen`}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
