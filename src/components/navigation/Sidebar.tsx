@@ -46,7 +46,7 @@ interface SidebarProps {
   className?: string;
 }
 
-export default function Sidebar({ className = "" }: SidebarProps) {
+function Sidebar({ className = "" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -126,3 +126,6 @@ export default function Sidebar({ className = "" }: SidebarProps) {
     </div>
   );
 }
+
+export default Sidebar;
+export { Sidebar };
