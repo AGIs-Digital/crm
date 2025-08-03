@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
     icon: <Home className="h-5 w-5" />,
   },
   {
-    title: "Kontakte",
+    title: "Leads",
     href: "/kontakte",
     icon: <Users className="h-5 w-5" />,
   },

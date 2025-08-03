@@ -2,6 +2,9 @@ export interface Tag {
   id: string;
   name: string;
   color: string;
+  icon?: string;
+  isSystemTag?: boolean;
+  isPipelineTag?: boolean;
 }
 
 export interface TimeStampedEntry {
@@ -20,6 +23,8 @@ export interface Contact {
   notes: string; // notizen
   gespraechszusammenfassung: TimeStampedEntry[]; // gespraechszusammenfassungen
   tags: Tag[];
+  reminder_date?: Date | null; // Datum für Wiedervorlage
+  reminder_note?: string; // Notiz zur Wiedervorlage
   created_at: Date;
   updated_at: Date;
 }
@@ -33,5 +38,7 @@ export interface ContactCreateRequest {
   phone: string;
   email: string;
   notes?: string;
+  reminder_date?: string | null; // ISO-String für Wiedervorlage
+  reminder_note?: string; // Notiz zur Wiedervorlage
   tags?: string[];
 }

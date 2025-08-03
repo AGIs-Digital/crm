@@ -8,7 +8,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Contact, Tag, TimeStampedEntry } from "@/types/Contact";
 import { TimeStampedTextArea } from "@/components/common/TimeStampedTextArea";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus } from "lucide-react";
+import { Plus, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -21,6 +30,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { v4 as uuidv4 } from "uuid";
@@ -51,6 +61,8 @@ export function ContactForm({
       email: "",
       notes: "",
       tags: [],
+      reminder_date: null,
+      reminder_note: "",
     },
   );
 
@@ -504,6 +516,10 @@ export function ContactForm({
           phone: fullPhoneNumber,
           email: formData.email || "",
           notes: formData.notes || "",
+          reminder_date: formData.reminder_date
+            ? formData.reminder_date.toISOString()
+            : null,
+          reminder_note: formData.reminder_note || "",
           tags: selectedTags,
         };
 
@@ -518,16 +534,14 @@ export function ContactForm({
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(
-            errorData.error || "Fehler beim Erstellen des Kontakts",
-          );
+          throw new Error(errorData.error || "Fehler beim Erstellen des Leads");
         }
 
         const newContact = await response.json();
 
         // Display success toast
         toast({
-          title: "Kontakt erstellt",
+          title: "Lead erstellt",
           description: `${formData.first_name} ${formData.last_name} wurde erfolgreich erstellt.`,
           variant: "success",
         });
@@ -535,7 +549,7 @@ export function ContactForm({
         // Call the parent component's onSave with the new contact
         onSave(newContact);
       } catch (error) {
-        console.error("Fehler beim Speichern des Kontakts:", error);
+        console.error("Fehler beim Speichern des Leads:", error);
         setErrors((prev) => ({
           ...prev,
           form:
@@ -794,7 +808,7 @@ export function ContactForm({
           onChange={handleChange}
           rows={4}
           aria-labelledby="notes-label"
-          placeholder="Zusätzliche Informationen zum Kontakt"
+          placeholder="Zusätzliche Informationen zum Lead"
         />
       </div>
 
@@ -812,26 +826,52 @@ export function ContactForm({
             <span>Neuer Tag</span>
           </Button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {localAvailableTags.map((tag) => (
-            <button
-              key={tag.id}
-              type="button"
-              className={`px-3 py-1 rounded-full text-sm ${selectedTags.includes(tag.id) ? "ring-2 ring-offset-1" : "opacity-70"}`}
-              style={{
-                backgroundColor: `${tag.color}20`,
-                color: tag.color,
-              }}
-              onClick={() => handleTagToggle(tag.id)}
-            >
-              {tag.name}
-            </button>
-          ))}
-          {localAvailableTags.length === 0 && (
-            <p className="text-sm text-muted-foreground italic">
-              Keine Tags vorhanden. Erstellen Sie einen neuen Tag.
-            </p>
-          )}
+
+        {/* System/Pipeline Tags Section */}
+        <div className="mb-4">
+          <h4 className="text-sm font-medium mb-2">Pipeline-Status</h4>
+          <div className="flex flex-wrap gap-2">
+            {localAvailableTags
+              .filter((tag) => tag.isPipelineTag)
+              .map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${selectedTags.includes(tag.id) ? "ring-2 ring-offset-1" : "opacity-70"}`}
+                  style={{
+                    backgroundColor: `${tag.color}20`,
+                    color: tag.color,
+                  }}
+                  onClick={() => handleTagToggle(tag.id)}
+                >
+                  {tag.icon && <span className="text-xs">{tag.icon}</span>}
+                  {tag.name}
+                </button>
+              ))}
+          </div>
+        </div>
+
+        {/* Regular Tags Section */}
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {localAvailableTags
+              .filter((tag) => !tag.isPipelineTag)
+              .map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${selectedTags.includes(tag.id) ? "ring-2 ring-offset-1" : "opacity-70"}`}
+                  style={{
+                    backgroundColor: `${tag.color}20`,
+                    color: tag.color,
+                  }}
+                  onClick={() => handleTagToggle(tag.id)}
+                >
+                  {tag.icon && <span className="text-xs">{tag.icon}</span>}
+                  {tag.name}
+                </button>
+              ))}
+          </div>
         </div>
       </div>
 
@@ -840,6 +880,9 @@ export function ContactForm({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Neuen Tag erstellen</DialogTitle>
+            <DialogDescription>
+              Erstellen Sie einen neuen Tag zur Kategorisierung Ihrer Leads.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -887,21 +930,89 @@ export function ContactForm({
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="gespraechszusammenfassung"
-          id="gespraechszusammenfassung-label"
-          className="flex items-center gap-2"
-        >
-          Gesprächszusammenfassung
-          <span className="text-muted-foreground" title="Schreibgeschützt">
-            🔒
-          </span>
-        </Label>
-        <TimeStampedTextArea
-          entries={gespraechszusammenfassung}
-          onAddEntry={handleAddGespraechszusammenfassung}
-        />
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="reminder_date" id="reminder_date-label">
+            Wiedervorlage
+          </Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.reminder_date && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.reminder_date ? (
+                      format(formData.reminder_date, "PPP", { locale: de })
+                    ) : (
+                      <span>Datum auswählen</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.reminder_date || undefined}
+                    onSelect={(date) =>
+                      setFormData((prev) => ({ ...prev, reminder_date: date }))
+                    }
+                    initialFocus
+                    locale={de}
+                  />
+                </PopoverContent>
+              </Popover>
+              {formData.reminder_date && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, reminder_date: null }))
+                  }
+                >
+                  Zurücksetzen
+                </Button>
+              )}
+            </div>
+            <div>
+              <Textarea
+                id="reminder_note"
+                name="reminder_note"
+                value={formData.reminder_note || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    reminder_note: e.target.value,
+                  }))
+                }
+                placeholder="Notiz zur Wiedervorlage für diesen Lead"
+                className="h-[120px]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label
+            htmlFor="gespraechszusammenfassung"
+            id="gespraechszusammenfassung-label"
+            className="flex items-center gap-2"
+          >
+            Gesprächszusammenfassung
+            <span className="text-muted-foreground" title="Schreibgeschützt">
+              🔒
+            </span>
+          </Label>
+          <TimeStampedTextArea
+            entries={gespraechszusammenfassung}
+            onAddEntry={handleAddGespraechszusammenfassung}
+          />
+        </div>
       </div>
 
       {errors.form && (
@@ -922,7 +1033,7 @@ export function ContactForm({
             ? "Wird gespeichert..."
             : isEditing
               ? "Speichern"
-              : "Kontakt erstellen"}
+              : "Lead erstellen"}
         </Button>
       </div>
     </form>

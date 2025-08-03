@@ -56,6 +56,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { format, addHours } from "date-fns";
+import { de } from "date-fns/locale";
 
 export default function KontaktePage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -112,11 +114,41 @@ export default function KontaktePage() {
     }
   };
 
-  // Filter contacts based on search term
+  // Filter contacts based on search term and hide pipeline leads by default
+  const [showPipelineLeads, setShowPipelineLeads] = useState(false);
+  const [viewMode, setViewMode] = useState<
+    "leads" | "customers" | "potentials"
+  >("leads");
+
   const filteredContacts = contacts.filter((contact) => {
+    // Check if contact has any pipeline tags
+    const hasPipelineTag = contact.tags.some((tag) => tag.isPipelineTag);
+
+    // Check if contact has 'Abschluss' tag (customer)
+    const isCustomer = contact.tags.some((tag) => tag.name === "Abschluss");
+
+    // Check if contact has 'Potenzial' tag (potential)
+    const isPotential = contact.tags.some((tag) => tag.name === "Potenzial");
+
+    // Filter by search term
     const searchString =
       `${contact.company_name} ${contact.first_name} ${contact.last_name} ${contact.email}`.toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+
+    // Apply filters based on view mode
+    if (viewMode === "customers") {
+      return matchesSearch && isCustomer;
+    } else if (viewMode === "potentials") {
+      return matchesSearch && isPotential;
+    } else {
+      // In leads view, exclude customers and potentials, and respect pipeline toggle
+      return (
+        matchesSearch &&
+        !isCustomer &&
+        !isPotential &&
+        (showPipelineLeads || !hasPipelineTag)
+      );
+    }
   });
 
   // Handle edit contact
@@ -244,8 +276,8 @@ export default function KontaktePage() {
         ),
       );
       toast({
-        title: "Kontakt aktualisiert",
-        description: "Der Kontakt wurde erfolgreich aktualisiert.",
+        title: "Lead aktualisiert",
+        description: "Der Lead wurde erfolgreich aktualisiert.",
         variant: "success",
       });
     } else {
@@ -255,8 +287,8 @@ export default function KontaktePage() {
         const newContact = contactData as Contact;
         setContacts([...contacts, newContact]);
         toast({
-          title: "Kontakt erstellt",
-          description: "Der Kontakt wurde erfolgreich erstellt.",
+          title: "Lead erstellt",
+          description: "Der Lead wurde erfolgreich erstellt.",
           variant: "success",
         });
       }
@@ -270,6 +302,47 @@ export default function KontaktePage() {
     setCurrentContact(undefined);
     // Refresh tags when form is closed in case new tags were created
     fetchTags();
+  };
+
+  // Handle add to calendar
+  const handleAddToCalendar = (contactId: string, date: Date, note: string) => {
+    try {
+      // Find the contact
+      const contact = contacts.find((c) => c.id === contactId);
+      if (!contact) return;
+
+      // Format the date for the calendar URL
+      const formattedDate = format(date, "yyyyMMdd'T'HHmmss");
+      const endDate = format(addHours(date, 1), "yyyyMMdd'T'HHmmss"); // Default to 1 hour duration
+
+      // Create title and description for the calendar event
+      const title = `Wiedervorlage: ${contact.first_name} ${contact.last_name}`;
+      const description =
+        note ||
+        `Wiedervorlage für ${contact.company_name || ""} ${contact.first_name} ${contact.last_name}`;
+
+      // Create Google Calendar URL
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formattedDate}/${endDate}&details=${encodeURIComponent(description)}`;
+
+      // Open the URL in a new tab
+      window.open(googleCalendarUrl, "_blank");
+
+      toast({
+        title: "Kalendereintrag erstellt",
+        description: `Wiedervorlage für ${contact.first_name} ${contact.last_name} wurde zum Kalender hinzugefügt.`,
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Fehler beim Erstellen des Kalendereintrags:", error);
+      toast({
+        title: "Fehler beim Erstellen des Kalendereintrags",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ein unerwarteter Fehler ist aufgetreten",
+        variant: "destructive",
+      });
+    }
   };
 
   // CSV Import functions
@@ -481,7 +554,7 @@ export default function KontaktePage() {
 
       toast({
         title: "Import erfolgreich",
-        description: `${newContacts.length} Kontakte wurden erfolgreich importiert.`,
+        description: `${newContacts.length} Leads wurden erfolgreich importiert.`,
         variant: "success",
       });
 
@@ -512,9 +585,9 @@ export default function KontaktePage() {
       // Check if there are contacts to export
       if (contactsToExport.length === 0) {
         toast({
-          title: "Keine Kontakte zum Exportieren",
+          title: "Keine Leads zum Exportieren",
           description:
-            "Es sind keine Kontakte vorhanden, die exportiert werden können.",
+            "Es sind keine Leads vorhanden, die exportiert werden können.",
           variant: "destructive",
         });
         return;
@@ -527,7 +600,7 @@ export default function KontaktePage() {
 
         // Generate filename with current date
         const date = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
-        const filename = `kontakte_export_${date}.csv`;
+        const filename = `leads_export_${date}.csv`;
 
         // Trigger download
         downloadCSV(csvContent, filename);
@@ -535,7 +608,7 @@ export default function KontaktePage() {
         // Show success message
         toast({
           title: "Export erfolgreich",
-          description: `${contactsToExport.length} Kontakte wurden erfolgreich exportiert.`,
+          description: `${contactsToExport.length} Leads wurden erfolgreich exportiert.`,
           variant: "success",
         });
       });
@@ -578,8 +651,8 @@ export default function KontaktePage() {
     setContacts((prevContacts) => [...prevContacts, ...dummyContacts]);
 
     toast({
-      title: "Dummy-Kontakte hinzugefügt",
-      description: "20 zufällige Kontakte wurden erfolgreich hinzugefügt.",
+      title: "Dummy-Leads hinzugefügt",
+      description: "20 zufällige Leads wurden erfolgreich hinzugefügt.",
       variant: "success",
     });
   };
@@ -597,7 +670,7 @@ export default function KontaktePage() {
 
       const response = await fetch("/api/kontakte");
       if (!response.ok) {
-        throw new Error(`Fehler beim Laden der Kontakte: ${response.status}`);
+        throw new Error(`Fehler beim Laden der Leads: ${response.status}`);
       }
       const data = await response.json();
       setContacts(data);
@@ -607,7 +680,7 @@ export default function KontaktePage() {
           ? err.message
           : "Ein unbekannter Fehler ist aufgetreten",
       );
-      console.error("Fehler beim Laden der Kontakte:", err);
+      console.error("Fehler beim Laden der Leads:", err);
     } finally {
       setIsLoading(false);
     }
@@ -622,21 +695,67 @@ export default function KontaktePage() {
   return (
     <div className="bg-background p-6 h-full">
       <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Kontakte durchsuchen..."
-            className="pl-10 w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder={`${viewMode === "customers" ? "Kunden" : viewMode === "potentials" ? "Potenziale" : "Leads"} durchsuchen...`}
+              className="pl-10 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === "leads" ? "default" : "outline"}
+              onClick={() => setViewMode("leads")}
+              className="text-sm"
+            >
+              Leads
+            </Button>
+            <Button
+              variant={viewMode === "customers" ? "default" : "outline"}
+              onClick={() => setViewMode("customers")}
+              className="text-sm"
+            >
+              Kunden
+            </Button>
+            <Button
+              variant={viewMode === "potentials" ? "default" : "outline"}
+              onClick={() => setViewMode("potentials")}
+              className="text-sm"
+            >
+              Potenziale
+            </Button>
+          </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
+          {viewMode === "leads" && (
+            <div className="flex items-center mr-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={showPipelineLeads}
+                  onChange={(e) => setShowPipelineLeads(e.target.checked)}
+                />
+                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                  Pipeline Leads anzeigen
+                </span>
+              </label>
+            </div>
+          )}
           <Button variant="default" onClick={handleNewContact}>
-            Neuer Kontakt
+            {viewMode === "customers"
+              ? "Neuer Kunde"
+              : viewMode === "potentials"
+                ? "Neues Potenzial"
+                : "Neuer Lead"}
           </Button>
           <Button variant="outline" onClick={addDummyContacts}>
-            20 Dummy-Kontakte
+            20 Dummy-Leads
           </Button>
           <div className="flex items-center gap-2">
             <Button
@@ -728,9 +847,7 @@ export default function KontaktePage() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">
-            Kontakte werden geladen...
-          </p>
+          <p className="mt-4 text-muted-foreground">Leads werden geladen...</p>
         </div>
       ) : error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-6 text-center">
@@ -748,6 +865,7 @@ export default function KontaktePage() {
           availableTags={availableTags}
           onAddTag={handleAddTagToContacts}
           onCreateTag={handleCreateTag}
+          onAddToCalendar={handleAddToCalendar}
         />
       )}
 
@@ -755,7 +873,7 @@ export default function KontaktePage() {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              {currentContact ? "Kontakt bearbeiten" : "Neuer Kontakt"}
+              {currentContact ? "Lead bearbeiten" : "Neuer Lead"}
             </DialogTitle>
           </DialogHeader>
           <ContactForm
@@ -776,9 +894,9 @@ export default function KontaktePage() {
       >
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Kontakte importieren</DialogTitle>
+            <DialogTitle>Leads importieren</DialogTitle>
             <DialogDescription>
-              Importieren Sie Ihre Kontakte aus einer CSV-Datei.
+              Importieren Sie Ihre Leads aus einer CSV-Datei.
             </DialogDescription>
           </DialogHeader>
 
@@ -979,11 +1097,9 @@ export default function KontaktePage() {
             <TabsContent value="importing" className="space-y-4 mt-4">
               <div className="flex flex-col items-center justify-center py-12">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <h3 className="text-lg font-medium">
-                  Kontakte werden importiert
-                </h3>
+                <h3 className="text-lg font-medium">Leads werden importiert</h3>
                 <p className="text-sm text-muted-foreground">
-                  Bitte warten Sie, während Ihre Kontakte importiert werden...
+                  Bitte warten Sie, während Ihre Leads importiert werden...
                 </p>
               </div>
             </TabsContent>

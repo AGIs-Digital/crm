@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Contact, Tag } from "@/types/Contact";
 import {
@@ -39,6 +41,7 @@ import {
   Tag as TagIcon,
   Plus,
   Loader2,
+  Calendar,
 } from "lucide-react";
 
 interface ContactTableProps {
@@ -49,6 +52,7 @@ interface ContactTableProps {
   availableTags?: Tag[];
   onAddTag?: (contactIds: string[], tagIds: string[]) => void;
   onCreateTag?: (name: string, color: string) => Promise<Tag>;
+  onAddToCalendar?: (contactId: string, date: Date, note: string) => void;
 }
 
 export function ContactTable({
@@ -59,6 +63,7 @@ export function ContactTable({
   availableTags = [],
   onAddTag,
   onCreateTag,
+  onAddToCalendar,
 }: ContactTableProps) {
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const { toast } = useToast();
@@ -80,13 +85,13 @@ export function ContactTable({
       try {
         onDelete(contactToDelete.id);
         toast({
-          title: "Kontakt wurde gelöscht",
+          title: "Lead wurde gelöscht",
           description: `${contactToDelete.first_name} ${contactToDelete.last_name} wurde erfolgreich gelöscht.`,
           variant: "success",
         });
       } catch (error) {
         toast({
-          title: "Fehler beim Löschen des Kontakts",
+          title: "Fehler beim Löschen des Leads",
           description: "Bitte versuchen Sie es später erneut.",
           variant: "error",
         });
@@ -333,11 +338,7 @@ export function ContactTable({
         </div>
       )}
       <div className="rounded-md border">
-        <div
-          className="overflow-x-auto"
-          role="region"
-          aria-label="Kontaktliste"
-        >
+        <div className="overflow-x-auto" role="region" aria-label="Lead-Liste">
           <table className="w-full">
             <thead>
               <tr className="border-b bg-muted/50" role="row">
@@ -347,14 +348,17 @@ export function ContactTable({
                     onCheckedChange={(checked) =>
                       handleSelectAll(checked === true)
                     }
-                    aria-label="Alle Kontakte auswählen"
+                    aria-label="Alle Leads auswählen"
                   />
                 </th>
                 <th className="py-3 px-4 text-left font-medium">Firmenname</th>
                 <th className="py-3 px-4 text-left font-medium">Name</th>
                 <th className="py-3 px-4 text-left font-medium">Telefon</th>
                 <th className="py-3 px-4 text-left font-medium">E-Mail</th>
-                <th className="py-3 px-4 text-left font-medium">Tags</th>
+                <th className="py-3 px-4 text-left font-medium">Status</th>
+                <th className="py-3 px-4 text-left font-medium">
+                  Wiedervorlage
+                </th>
                 <th className="py-3 px-4 text-left font-medium">Aktionen</th>
               </tr>
             </thead>
@@ -395,7 +399,40 @@ export function ContactTable({
                       aria-label={`${contact.first_name} ${contact.last_name} auswählen`}
                     />
                   </td>
-                  <td className="py-3 px-4">{contact.company_name}</td>
+                  <td
+                    className="py-3 px-4 opacity-100"
+                    style={{
+                      background:
+                        contact.tags.length > 0
+                          ? contact.tags.length === 1
+                            ? `${contact.tags[0].color}30`
+                            : `linear-gradient(to right, ${contact.tags
+                                .map((tag, index) => {
+                                  const percentage = 100 / contact.tags.length;
+                                  const start = index * percentage;
+                                  const end = (index + 1) * percentage;
+                                  const gradientWidth = 10; // Gradient transition width in percentage
+
+                                  if (index === 0) {
+                                    // First color: start at 0%, fade out at start + gradientWidth
+                                    return `${tag.color}30 0%, ${tag.color}30 ${Math.max(0, end - gradientWidth)}%, ${tag.color}15 ${end}%`;
+                                  } else if (
+                                    index ===
+                                    contact.tags.length - 1
+                                  ) {
+                                    // Last color: fade in at start, end at 100%
+                                    return `${tag.color}15 ${start}%, ${tag.color}30 ${Math.min(100, start + gradientWidth)}%, ${tag.color}30 100%`;
+                                  } else {
+                                    // Middle colors: fade in and out
+                                    return `${tag.color}15 ${start}%, ${tag.color}30 ${Math.min(100, start + gradientWidth)}%, ${tag.color}30 ${Math.max(0, end - gradientWidth)}%, ${tag.color}15 ${end}%`;
+                                  }
+                                })
+                                .join(", ")})`
+                          : "transparent",
+                    }}
+                  >
+                    {contact.company_name}
+                  </td>
                   <td className="py-3 px-4">
                     {contact.salutation} {contact.first_name}{" "}
                     {contact.last_name}
@@ -404,35 +441,111 @@ export function ContactTable({
                   <td className="py-3 px-4">{contact.email}</td>
                   <td className="py-3 px-4">
                     <div className="flex flex-wrap gap-1">
-                      {contact.tags.map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="px-2 py-1 text-xs rounded-full"
-                          style={{
-                            backgroundColor: `${tag.color}20`,
-                            color: tag.color,
-                          }}
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
+                      {/* Display pipeline tags first */}
+                      {contact.tags
+                        .filter((tag) => tag.isPipelineTag)
+                        .map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="px-2 py-1 text-xs rounded-full flex items-center gap-1 font-medium"
+                            style={{
+                              backgroundColor: `${tag.color}20`,
+                              color: tag.color,
+                            }}
+                          >
+                            {tag.icon && (
+                              <span className="text-xs">{tag.icon}</span>
+                            )}
+                            {tag.name}
+                          </span>
+                        ))}
+                      {/* Then display non-pipeline tags */}
+                      {contact.tags
+                        .filter((tag) => !tag.isPipelineTag)
+                        .map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="px-2 py-1 text-xs rounded-full flex items-center gap-1"
+                            style={{
+                              backgroundColor: `${tag.color}20`,
+                              color: tag.color,
+                            }}
+                          >
+                            {tag.icon && (
+                              <span className="text-xs">{tag.icon}</span>
+                            )}
+                            {tag.name}
+                          </span>
+                        ))}
                     </div>
                   </td>
                   <td className="py-3 px-4">
+                    {contact.reminder_date ? (
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">
+                          {new Date(contact.reminder_date).toLocaleDateString(
+                            "de-DE",
+                          )}
+                        </span>
+                        {contact.reminder_note && (
+                          <span
+                            className="text-xs text-muted-foreground truncate max-w-[150px]"
+                            title={contact.reminder_note}
+                          >
+                            {contact.reminder_note}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Keine
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
                     <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500"
-                        onClick={(e) => {
-                          e.preventDefault(); // Prevent row click from triggering
-                          handleDeleteClick(contact);
-                        }}
-                        data-delete-button="true"
-                        aria-label={`${contact.first_name} ${contact.last_name} löschen`}
-                      >
-                        Löschen
-                      </Button>
+                      <div className="flex gap-2">
+                        {contact.reminder_date && onAddToCalendar && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-500"
+                            onClick={(e) => {
+                              e.preventDefault(); // Prevent row click from triggering
+                              if (contact.reminder_date && onAddToCalendar) {
+                                onAddToCalendar(
+                                  contact.id,
+                                  new Date(contact.reminder_date),
+                                  contact.reminder_note || "",
+                                );
+                                toast({
+                                  title: "Kalendereintrag erstellt",
+                                  description: `Wiedervorlage für ${contact.first_name} ${contact.last_name} wurde zum Kalender hinzugefügt.`,
+                                  variant: "success",
+                                });
+                              }
+                            }}
+                            data-calendar-button="true"
+                            aria-label={`Kalendereintrag für ${contact.first_name} ${contact.last_name} erstellen`}
+                          >
+                            <Calendar className="h-4 w-4 mr-1" />
+                            Kalender
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500"
+                          onClick={(e) => {
+                            e.preventDefault(); // Prevent row click from triggering
+                            handleDeleteClick(contact);
+                          }}
+                          data-delete-button="true"
+                          aria-label={`${contact.first_name} ${contact.last_name} löschen`}
+                        >
+                          Löschen
+                        </Button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -441,7 +554,6 @@ export function ContactTable({
           </table>
         </div>
       </div>
-
       {/* Pagination controls */}
       <div className="flex items-center justify-between mt-4">
         <div className="flex items-center space-x-2">
@@ -491,7 +603,6 @@ export function ContactTable({
           {contacts.length} Kontakte insgesamt
         </div>
       </div>
-
       {/* Single contact delete dialog */}
       <AlertDialog
         open={!!contactToDelete}
@@ -517,7 +628,6 @@ export function ContactTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       {/* Bulk delete dialog */}
       <AlertDialog
         open={showBulkDeleteDialog}
@@ -545,7 +655,6 @@ export function ContactTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       {/* Bulk tag assignment dialog */}
       <Dialog open={showTagDialog} onOpenChange={setShowTagDialog}>
         <DialogContent className="max-w-md">
@@ -574,10 +683,15 @@ export function ContactTable({
                       htmlFor={`tag-${tag.id}`}
                       className="flex items-center text-sm font-medium cursor-pointer"
                     >
-                      <span
-                        className="w-3 h-3 rounded-full mr-2"
-                        style={{ backgroundColor: tag.color }}
-                      />
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="w-3 h-3 rounded-full mr-1"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        {tag.icon && (
+                          <span className="text-xs">{tag.icon}</span>
+                        )}
+                      </div>
                       {tag.name}
                     </label>
                   </div>

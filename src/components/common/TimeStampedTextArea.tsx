@@ -123,7 +123,7 @@ export function TimeStampedTextArea({
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="space-y-2">
         <Textarea
           value={newEntry}
           onChange={(e) => setNewEntry(e.target.value)}
@@ -131,11 +131,15 @@ export function TimeStampedTextArea({
           rows={3}
         />
         <div className="flex justify-end">
-          <Button type="submit" disabled={!newEntry.trim()}>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!newEntry.trim()}
+          >
             Eintrag hinzufügen
           </Button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
