@@ -7,8 +7,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Tempo - Modern SaaS Starter",
-  description: "A modern full-stack starter template powered by Next.js",
+  title: "callflows CRM",
+  description: "Modulares CRM-System mit deutschsprachiger Benutzeroberfläche",
 };
 
 export default function RootLayout({
@@ -17,7 +17,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="de" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/images/favicon.png" />
+      </head>
       <body className={inter.className}>
         <Script
           src="https://api.tempolabs.ai/proxy-asset?url=https://storage.googleapis.com/tempo-public-assets/error-handling.js"

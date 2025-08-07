@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Sidebar from "../navigation/Sidebar";
 import { usePathname } from "next/navigation";
-import Head from "next/head";
+
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -30,12 +30,7 @@ export default function DashboardLayout({
   };
 
   return (
-    <>
-      <Head>
-        <link rel="icon" href="/images/favicon.png" />
-        <title>callflows CRM - {getModuleTitle()}</title>
-      </Head>
-      <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <div
           className={`${isSidebarCollapsed ? "w-16" : "w-64"} transition-all duration-300 ease-in-out h-screen bg-card border-r border-border flex-shrink-0`}
@@ -90,6 +85,6 @@ export default function DashboardLayout({
           </footer>
         </div>
       </div>
-    </>
+    </div>
   );
 }
