@@ -71,8 +71,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto py-4 flex flex-row">
-          <div className="container mx-auto">{children || defaultChildren}</div>
+        <main className="flex-1 overflow-auto">
+          <div className="h-full w-full">{children || defaultChildren}</div>
         </main>
 
         {/* Footer */}

@@ -14,7 +14,7 @@ import {
 
 export default function DashboardPage() {
   return (
-    <div className="bg-background p-6 h-full">
+    <div className="bg-background p-6 h-full min-h-screen">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-6">

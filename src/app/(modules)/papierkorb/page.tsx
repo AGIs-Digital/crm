@@ -265,7 +265,7 @@ export default function PapierkorbPage() {
   };
 
   return (
-    <div className="bg-background p-6 h-full">
+    <div className="bg-background p-6 h-full min-h-screen">
       <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Papierkorb</h1>

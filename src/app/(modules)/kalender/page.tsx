@@ -239,7 +239,7 @@ export default function KalenderPage() {
   const dayNames = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   return (
-    <div className="bg-background p-6 h-full">
+    <div className="bg-background p-6 h-full min-h-screen">
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Kalender</h1>

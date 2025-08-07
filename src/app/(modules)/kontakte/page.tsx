@@ -808,7 +808,7 @@ export default function KontaktePage() {
   }, []);
 
   return (
-    <div className="bg-background p-6 h-full">
+    <div className="bg-background p-6 h-full min-h-screen">
       <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
           <div className="relative w-full sm:w-96">
