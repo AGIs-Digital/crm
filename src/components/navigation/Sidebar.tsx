@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Home, Users, Calendar, Trello, Trash2 } from "lucide-react";
+import { Home, Users, Calendar, Trello, Trash2 } from "lucide-react";
+import Image from "next/image";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface NavItem {
   title: string;
@@ -43,87 +47,94 @@ const navItems: NavItem[] = [
 ];
 
 interface SidebarProps {
+  isCollapsed?: boolean;
+  onToggle?: () => void;
   className?: string;
 }
 
-function Sidebar({ className = "" }: SidebarProps) {
+function Sidebar({
+  isCollapsed = false,
+  onToggle,
+  className = "",
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
 
   const handleNavigation = (href: string, e: React.MouseEvent) => {
     e.preventDefault();
-    setOpen(false);
     router.push(href);
   };
 
   return (
-    <div className={cn("bg-background", className)}>
-      {/* Mobile Navigation */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild className="lg:hidden">
-          <Button variant="outline" size="icon" className="ml-2 mt-2">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Menü öffnen</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[280px] p-0">
-          <div className="flex h-full flex-col">
-            <div className="border-b p-4">
-              <h2 className="text-lg font-semibold">callflows CRM</h2>
-            </div>
-            <nav className="flex-1 overflow-auto p-2">
-              <ul className="grid gap-1 p-2">
-                {navItems.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={(e) => handleNavigation(item.href, e)}
-                      className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                        pathname.includes(item.href)
-                          ? "bg-accent text-accent-foreground"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {item.icon}
-                      {item.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </div>
-        </SheetContent>
-      </Sheet>
-      {/* Desktop Navigation */}
-      <div className="hidden h-screen flex-col border-r lg:flex">
-        <div className="border-b p-4">
-          <h2 className="text-lg font-semibold">callflows CRM</h2>
+    <TooltipProvider>
+      <div className={cn("bg-background h-full flex flex-col", className)}>
+        {/* Header */}
+        <div className="border-b p-4 flex items-center justify-center">
+          {isCollapsed ? (
+            <Image
+              src="/images/favicon.png"
+              alt="callflows"
+              width={32}
+              height={32}
+              className="h-8 w-8"
+            />
+          ) : (
+            <Image
+              src="/images/callflows_brand_no_claim.png"
+              alt="callflows CRM"
+              width={150}
+              height={40}
+              className="h-8 w-auto"
+            />
+          )}
         </div>
-        <nav className="flex-1 overflow-auto p-2 w-[259px]">
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-auto p-2">
           <ul className="grid gap-1 p-2">
             {navItems.map((item) => (
               <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={(e) => handleNavigation(item.href, e)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    pathname.includes(item.href)
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {item.icon}
-                  {item.title}
-                </Link>
+                {isCollapsed ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={item.href}
+                        onClick={(e) => handleNavigation(item.href, e)}
+                        className={cn(
+                          "flex items-center justify-center rounded-md p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                          pathname.includes(item.href)
+                            ? "bg-accent text-accent-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {item.icon}
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p>{item.title}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Link
+                    href={item.href}
+                    onClick={(e) => handleNavigation(item.href, e)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                      pathname.includes(item.href)
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {item.icon}
+                    {item.title}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>
         </nav>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
